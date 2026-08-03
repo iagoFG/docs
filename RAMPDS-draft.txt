@@ -1,0 +1,304 @@
+Draft Proposal                                               I. Fuente
+Informational                                              August 2026   
+
+
+        Ampersand Serialization based on x-www-form-urlencoded
+
+Abstract
+
+   This document describes Ampersand Data Serialization Format (AMPDS)
+   an encoded text-based data serialization format designed for high
+   performance, low encoding overhead, zero-copy parsing, and human
+   readability. AMPDS adapts key-value query string syntax into a
+   structured representation supporting hierarchical objects, ordinal
+   arrays, and raw literal text blocks. The format specifies a minimal
+   escaping rule restricted to percent and ampersand characters, and
+   deliberately omits space-to-plus conversions to preserve raw
+   payload integrity.
+
+
+1. Introduction
+
+   Data serialization formats often require a compromise between
+   human readability, parsing efficiency, and payload size. Formats
+   derived from traditional web query strings typically mandate heavy
+   percent-encoding and replace spaces with plus characters (+). This
+   transformation adds computational overhead when embedding source
+   code or binary payloads.
+
+   The Ampersand Data Serialization Format (AMPDS / RAMPDS) defines a
+   streamlined serialization format that can be parsed in O(N) linear
+   time using simple pointer offsets without dynamic memory
+   allocation.
+
+
+2. Character Encoding and Escaping Rules
+
+   AMPDS enforces a minimal escaping policy to reduce size expansion
+   and CPU cycle requirements during processing.
+
+2.1. Compatibility Escaping Rules (AMPDS percent encoding set)
+
+   Within standard key-value segments, the only mandatory 3 escape
+   sequences are these:
+
+      Character   Literal Byte   Encoded Sequence
+      -------------------------------------------
+      '%'         0x25           '%25'
+      '&'         0x26           '%26'
+      '+'         0x2B           '%2B'
+
+   All other bytes, including structural symbols like '=', non-ASCII
+   UTF-8 octets, and whitespace, SHOULD BE AVOID percent-encoded
+   unless required by an external transport layer.
+
+   The purpose of this restricted percent-encoded scheme is to reduce
+   length and complexity of the serialized data in relation with
+   the original binary data while holding retro-compatibility with
+   previous percent encoders and decoders.
+
+2.2. Strict reduced escaping rules mode (RAMPDS percent encoding set)
+
+   Once negociated by both parts (both emitter and receptor) a
+   reduced ruleset can be enabled by enforcing only this 2 rules:
+
+      Character   Literal Byte   Encoded Sequence
+      -------------------------------------------
+      '%'         0x25           '%25'
+      '&'         0x26           '%26'
+
+   And removing-forbidding these two rules on encoders:
+
+      Character   Literal Byte   Encoded Sequence
+      -------------------------------------------
+      ' '         0x20           '+'
+      '+'         0x2B           '%2B'
+   
+   Previous form-encoding / percent-encoding transforms space octets
+   (0x20) into plus signs (+, 0x2B). RAMPDS explicitly avoids this
+   substitution:
+
+   - The space character (0x20) is transmitted verbatim as 0x20.
+   - The plus character (+, 0x2B) is transmitted verbatim as 0x2B.
+
+   Parsers implementing RAMPDS MUST NOT translate '+' into spaces.
+   This behavior constitutes a deliberate incompatibility with web
+   form-encoding specifications.
+
+   This allow more efficient data transmission for the serialized
+   data. If an old urldecoder is the only option then replace '+'
+   with %2B is an option.
+
+
+3. Structural Elements and Delimiters
+
+   An AMPDS/RAMPDS document consists of structural segments delimited
+   by ampersands (&).
+
+3.1. Key-Value Pairs
+
+   The basic unit of data inside a segment delimited by ampersands:
+
+      &key=value&
+
+   Keys should not include '=' because it will need to be encoded as
+   '%3D'; other characters like '&' or '%' are discouraged as well
+   because it will be encoded as '%26' or '%25'.
+   
+   Values can include '=' and will not be encoded (only the first '='
+   in the segment has a special meaning of separating key and value.
+
+   No empty segments are allowed, at least they should have an equals
+   sign ('=') because otherwise a special meaning will be interpreted
+   as described in the following sections of the document.
+
+3.2. Object Scoping
+
+   AMPDS/RAMPDS supports object nesting using two delimiter schemes.
+
+3.2.1. Explicit Object Delimiters with &{& and &}&
+
+   Objects may be opened with &{& and closed with &}& like in:
+
+      &user=&{&
+          &name=Alice&
+          &role=Admin&
+      &}&
+      &other=value&
+
+   Same example but with no indentation, nor multiline used:
+
+      &user=&{&name=Alice&role=Admin&}&other=value&
+
+3.2.2. Compact Implicit Markers (&& and &&&)
+
+   Alternatively, consecutive ampersands indicate depth changes:
+
+   - '&&'  opens a child scope (increments stack depth).
+   - '&&&' closes a child scope (decrements stack depth).
+
+      &user=&&
+          &name=Alice&
+          &role=Admin&
+      &&&
+      &other=value&
+
+      &user=&&name=Alice&role=Admin&&&other=value&
+
+3.2.3. Multi-Level Closing (&&&& and above)
+
+   Four or more consecutive ampersands close multiple levels.
+   N consecutive ampersands (where N >= 4) close (N - 2) levels.
+   
+   Alternatively each closing '&&&' block must be separated with
+   at least a space. These all are valid examples:
+
+      &user=&&
+          &name=Alice&
+          &credentials=&&
+              &role=Admin&
+              &dates=&&
+                  &creation=1-1-2019&
+                  &expiration=1-1-2020&
+      &&&&&
+      &other=value&
+
+      &user=&&name=Alice&credentials=&&role=Admin&dates=&&creation=
+      1-1-2019&expiration=1-1-2020&&&&& &other=value&
+
+      &user=&&
+          &name=Alice&
+          &credentials=&&
+              &role=Admin&
+              &dates=&&
+                  &creation=1-1-2019&
+                  &expiration=1-1-2020&
+              &&&
+          &&&
+      &&&
+      &other=value&
+
+      &user=&&name=Alice&credentials=&&role=Admin&dates=&&creation=
+      1-1-2019&expiration=1-1-2020&&& &&& &&& &other=value&
+
+3.3. Ordinal Arrays (&=value&)
+
+   Arrays are represented as ordered lists without explicit keys. An
+   array element segment omits the identifier before the '=' sign:
+
+      &items=&&
+          &=first_item&
+          &=second_item&
+          &=third_item&
+      &&&
+
+      &items=&&=first_item&=second_item&=third_item&&&
+
+   Empty elements in an array MUST be represented as '&=&':
+
+      &list=&&
+          &=alpha&
+          &=&
+          &=gamma&
+      &&&
+
+      &list=&&=alpha&=&=gamma&&&
+
+   In the example above, the second element is an empty string ("").
+
+3.4. Raw Literal Text Blocks (&"&)
+
+   Verbatim text or binary data can be wrapped in raw text blocks
+   bounded by &"& delimiters:
+
+      &script=&"&
+      function test() {
+          if (a % 2 == 0 && b != "") { return true; }
+      }
+      &"&
+
+   Inside &"& blocks, ampersands, percent signs, and double quotes
+   are preserved WITHOUT escaping. The parser preserves all bytes
+   until a closing &"& token.
+
+   Parsers implement Symmetrical Boundary Newline Stripping: if the
+   content immediately after the opening &"& starts with a newline
+   (\n, \r\n, or \n\r) and the content before the closing &"& ends
+   with the exact same newline sequence, both boundary newlines are
+   stripped by the parser.
+
+3.5. Ignored segments (& &)
+
+   Segments that do not include '=' within and were not described
+   previously but have other characters (non-empty segments) will be
+   ignored and considered as comments, or indentation segments
+   without meaning or data.
+
+
+4. Extensibility Framework
+
+   AMPDS/RAMPDS reserves token pairs for application-level extensions
+   beyond the default object delimiters (&{& and &}&) for future
+   customizable extensions:
+
+      &[& ... &]&  (reserved)
+      &<& ... &>&  (reserved)
+      &(& ... &)&  (reserved)
+
+   Users may define custom opening and closing character pairs of
+   symmetrical or non-symmetrical ASCII symbols bounded by ampersands
+   to assign specific future domain semantics. Mechanisms for
+   registering custom handlers, remain opened for future definition.
+
+
+5. Formal Grammar (ABNF)
+
+   AMPDS-doc   = *segment
+   segment     = "&" ( pair / array-elem / obj-open / obj-close /
+                 raw-block / custom-scope )
+   pair        = key "=" value
+   key         = 1*escaped
+   value       = *escaped
+   array-elem  = "=" [ value ]
+   obj-open    = "{" / "&"
+   obj-close   = "}" / "&&" / multi-close
+   multi-close = 3*AMPERSAND
+   AMPERSAND   = "&"
+   raw-block   = "&" DQUOTE "&" raw-content "&" DQUOTE "&"
+   custom-scope= ( "[" / "<" ) "&" *segment "&" ( "]" / ">" )
+   escaped     = %x00-x24 / %x27-x7E / %x80-xFF / "%25" / "%26"
+
+
+6. Implementation Notes
+
+   High-level environments can parse AMPDS/RAMPDS by performing a
+   primary split on the '&' character and then analyzing segments in
+   a second pass phase.
+
+   Low-level systems (such as C or rust) can parse AMPDS/RAMPDS in
+   O(N) time using a zero-copy state machine that tracks integer
+   byte offsets within the source buffer without memory allocation.
+
+
+7. Examples
+
+7.1. Basic Assignment
+
+   &server=db1&port=5432&notes=Fast%26Clean%25100&
+
+7.2. Array with Empty Element
+
+   &values=&&
+       &=one&
+       &=&
+       &=three&
+   &&&
+
+7.3. Raw Code Block
+
+   &code=&"&
+   int main(int argc, char** argv) {
+       printf("sample source code with %d params\n", argc);
+       return 0;
+   }
+   &"&
