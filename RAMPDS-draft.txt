@@ -1,12 +1,14 @@
 Draft Proposal                                               I. Fuente
-Informational                                              August 2026   
+Informational                                            December 2005   
+                                                  updated: August 2026   
 
 
-        Ampersand Serialization based on x-www-form-urlencoded
+   RAMPDS/AMPDS Serialization Format based on x-www-form-urlencoded
 
 Abstract
 
    This document describes Ampersand Data Serialization Format (AMPDS)
+   and also the Reduced Ampersand Data Serialization Format (RAMPDS)
    an encoded text-based data serialization format designed for high
    performance, low encoding overhead, zero-copy parsing, and human
    readability. AMPDS adapts key-value query string syntax into a
