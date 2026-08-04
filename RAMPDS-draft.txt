@@ -285,6 +285,7 @@ Abstract
    multi-close = 3*AMPERSAND
    AMPERSAND   = "&"
    raw-block   = "&" DQUOTE "&" raw-content "&" DQUOTE "&"
+   base64-block= "&" PIPE "&" base64-content "&" PIPE "&"
    custom-scope= ( "[" / "<" ) "&" *segment "&" ( "]" / ">" )
    escaped     = %x00-x24 / %x27-x7E / %x80-xFF / "%25" / "%26"
 
