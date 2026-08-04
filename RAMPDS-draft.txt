@@ -24,14 +24,14 @@ Abstract
    Data serialization formats often require a compromise between
    human readability, parsing efficiency, and payload size. Formats
    derived from traditional web query strings typically mandate heavy
-   percent-encoding and replace spaces with plus characters (+). This
-   transformation adds computational overhead when embedding source
-   code or binary payloads.
-
-   The Ampersand Data Serialization Format (AMPDS / RAMPDS) defines a
-   streamlined serialization format that can be parsed in O(N) linear
-   time using simple pointer offsets without dynamic memory
-   allocation.
+   percent-encoding and replace spaces with plus characters '+' because
+   this transformation adds computational overhead and data length when
+   encoding, specially source code or binary payloads this document
+   proposes a simplification defining a streamlined reduced
+   serialization format that can be parsed in O(N) linear time using
+   simple pointer offsets without extra dynamic memory allocation
+   including user-defined blocks and integration with other serialization
+   formats like base-64.
 
 
 2. Character Encoding and Escaping Rules
