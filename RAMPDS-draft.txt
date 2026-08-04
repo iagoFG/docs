@@ -30,14 +30,14 @@ Abstract
    proposes a simplification defining a streamlined reduced
    serialization format that can be parsed in O(N) linear time using
    simple pointer offsets without extra dynamic memory allocation
-   including user-defined blocks and integration with other serialization
-   formats like base-64.
+   including future user-defined blocks and integration with another
+   serialization formats like base-64.
 
 
 2. Character Encoding and Escaping Rules
 
-   AMPDS enforces a minimal escaping policy to reduce size expansion
-   and CPU cycle requirements during processing.
+   AMPDS and specially RAMPDS enforces a minimal escaping policy to
+   reduce size expansion and CPU cycle requirements during processing.
 
 2.1. Compatibility Escaping Rules (AMPDS percent encoding set)
 
@@ -221,7 +221,11 @@ Abstract
 
    Inside &"& blocks, ampersands, percent signs, and double quotes
    are preserved WITHOUT escaping. The parser preserves all bytes
-   until a closing &"& token.
+   until a closing &"& token. The only forbidden sequence is &"&
+   so you cannot include another RAMPDS within a raw literal block
+   or any data segment that contains the &"& sequence. If the
+   encoded binary data contains &"& you MUST encode it with the
+   ordinary &key=value& recoded percent-encoding format.
 
    Parsers implement Symmetrical Boundary Newline Stripping: if the
    content immediately after the opening &"& starts with a newline
@@ -229,7 +233,21 @@ Abstract
    with the exact same newline sequence, both boundary newlines are
    stripped by the parser.
 
-3.5. Ignored segments (& &)
+3.5. Base-64 Encoded Binary Blocks (&|&)
+
+   Althought non-necesary (because values can be encoded directly
+   in base-64 fragments within normal &key=value& segments without
+   conflict) the format allows to define explicit base-64 encoded
+   blocks by using &|& delimiters:
+
+      &script=&|&ICAgICAgZnVuY3Rpb24gdGVzdCgpIHsKICAgICAgICAgIGlmI
+      ChhICUgMiA9PSAwICYmIGIgIT0gIiIpIHsgcmV0dXJuIHRydWU7IH0KICAgI
+      CAgfQ==&|&
+
+   Inside &|& only base-64 data is allowed and all other characters
+   like \n or \r are ignored.
+
+3.6. Ignored segments (& &)
 
    Segments that do not include '=' within and were not described
    previously but have other characters (non-empty segments) will be
