@@ -235,10 +235,10 @@ Abstract
 
 3.5. Base-64 Encoded Binary Blocks (&|&)
 
-   Althought non-necesary (because values can be encoded directly
+   Althought non-mandatory (because values can be encoded directly
    in base-64 fragments within normal &key=value& segments without
    conflict) the format allows to define explicit base-64 encoded
-   blocks by using &|& delimiters:
+   blocks by using &|& delimiters for ease, features and semantics:
 
       &script=&|&ICAgICAgZnVuY3Rpb24gdGVzdCgpIHsKICAgICAgICAgIGlmI
       ChhICUgMiA9PSAwICYmIGIgIT0gIiIpIHsgcmV0dXJuIHRydWU7IH0KICAgI
